@@ -1,0 +1,73 @@
+---
+# upgrade_vm-plugin.yml - Upgrade the vm-plugin version on a PAN-OS device.
+#
+# Description
+# ===========
+#
+# Install vm-series plugin version on a PAN-OS vm-series device.
+#
+# This playbook requires connection details for the device to be specified in the variables 'ip_address', 'username',
+# and 'password'.  These may be defined as host variables (see `host_vars/firewall.yml` for an example) or 
+# extra vars.
+#
+# Usage
+# =====
+#
+# Required Variables:
+#
+#   target: Target PAN-OS device
+#   vm_plugin_version: VM-Series plugin version
+#
+#
+# Install the plugin on a single PAN-OS vm-series device:
+#
+#   $ ansible-playbook -i inventory install_vm-plugin.yml --extra-vars "target=firewall"
+
+- hosts: '{{ target | default("firewall") }}'
+  connection: local
+
+  vars:
+    device:
+      ip_address: '{{ ip_address }}'
+      username: '{{ username | default(omit) }}'
+      password: '{{ password | default(omit) }}'
+      api_key: '{{ api_key | default(omit) }}'
+
+    vm_plugin_file: 'vm_series-2.1.6' 
+
+  tasks:
+    - name: Check vm-series plugins
+      paloaltonetworks.panos.panos_op:
+        provider: '{{ device }}'
+        cmd: 'request plugins check'
+      register: check
+
+    - name: Download vm-series version
+      paloaltonetworks.panos.panos_op:
+        provider: '{{ device }}'
+        cmd: 'request plugins download file {{ vm_plugin_file }}'
+      register: download
+
+    - name: Check plugin download result
+      paloaltonetworks.panos.panos_op:
+        provider: '{{ device }}'
+        cmd: 'show jobs id {{ (download.stdout | from_json).response.result.job }}'
+      register: download_job
+      until: download_job is not failed and (download_job.stdout | from_json).response.result.job.status == 'FIN'
+      retries: 10
+      delay: 10
+
+    - name: Install vm-series plugin version
+      paloaltonetworks.panos.panos_op:
+        provider: '{{ device }}'
+        cmd: 'request plugins install {{ vm_plugin_file }}'
+      register: install
+
+    - name: Check content install result
+      paloaltonetworks.panos.panos_op:
+        provider: '{{ device }}'
+        cmd: 'show jobs id {{ (install.stdout | from_json).response.result.job }}'
+      register: install_job
+      until: install_job is not failed and (install_job.stdout | from_json).response.result.job.status == 'FIN'
+      retries: 10
+      delay: 10
