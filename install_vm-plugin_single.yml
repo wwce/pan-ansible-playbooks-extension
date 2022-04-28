@@ -16,12 +16,12 @@
 # Required Variables:
 #
 #   target: Target PAN-OS device
-#   vm_plugin_version: VM-Series plugin version
+#   vm_plugin_file:  Filename of the vm-series plugin to install
 #
 #
 # Install the plugin on a single PAN-OS vm-series device:
 #
-#   $ ansible-playbook -i inventory install_vm-plugin.yml --extra-vars "target=firewall"
+#   $ ansible-playbook -i inventory install_vm-plugin.yml --extra-vars "target=firewall vm_plugin_file=vm_series-2.1.6"
 
 - hosts: '{{ target | default("firewall") }}'
   connection: local
@@ -33,7 +33,7 @@
       password: '{{ password | default(omit) }}'
       api_key: '{{ api_key | default(omit) }}'
 
-    vm_plugin_file: 'vm_series-2.1.6' 
+    vm_plugin_file: '{{ vm_plugin_file }}' 
 
   tasks:
     - name: Check vm-series plugins
@@ -63,7 +63,7 @@
         cmd: 'request plugins install {{ vm_plugin_file }}'
       register: install
 
-    - name: Check content install result
+    - name: Check plugin install result
       paloaltonetworks.panos.panos_op:
         provider: '{{ device }}'
         cmd: 'show jobs id {{ (install.stdout | from_json).response.result.job }}'
